@@ -1,0 +1,1278 @@
+<?php
+
+/**
+ * Implements hook_permission();
+ */
+function it_novell_permission() {
+  return array(
+    'access protected it_novell_search' => array(
+      'title' => 'IT Novell пользователи',
+      'description' => 'Доступ к поиску пользователей',
+    ),
+    'access protected it_novell_logs' => array(
+      'title' => 'Аудит поиска',
+      'description' => 'Просмотр истории поиска, кто кого искал и когда',
+    ),
+    'access protected it_novell_dns' => array(
+      'title' => 'DNS Novell',
+      'description' => 'Управление DNS записями',
+    ),
+    'access protected it_novell_arm' => array(
+      'title' => 'ARM Register',
+      'description' => 'Управление учетом ARM',
+    ),
+//    'access protected bssdbo_tool' => array(
+//      'title' => 'Bss tools',
+//      'description' => 'Доступ к утилитам патчам',
+//    ),
+  );
+}
+
+/**
+ * Implements hook_menu();
+ */
+function it_novell_menu() {
+
+
+
+  $items['it-connect/postin'] = array(
+    'title' => 'Служебное назначение', //заголовок страницы
+    //'description' => '', //описание страницы
+    'page callback' => 'it_novell_post_get',
+    //'page arguments' => array(3, 4, 5, 6),
+    'access callback' => TRUE, //array('access protected bssdbo_service'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_CALLBACK,
+  );
+
+
+  $items['it_novell'] = array(
+    'title' => 'Novell tools', //заголовок страницы
+    'description' => 'Няшки для Novell', //описание страницы
+    'page callback' => 'drupal_get_form',
+    //'page callback' => 'it_novell_page_search_user',
+    'page arguments' => array('it_novell_search_forms'),
+    'access arguments' => array('access protected it_novell_search'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 100,
+  );
+
+  $items['it_novell/users'] = array(
+    'title' => 'Поиск пользователя', //заголовок страницы
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['it_novell/list/%'] = array(
+    'title' => 'Список пользователей контекста', //заголовок страницы
+    'description' => 'Выводит список пользователей в таблицу', //описание страницы
+    'page callback' => 'it_novell_page_users',
+    'page arguments' => array(2),
+    'access arguments' => array('access protected it_novell_search'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['it_novell/statisticc'] = array(
+    'title' => 'Статистика ', //заголовок страницы
+    'description' => 'Статистика по контекстам Novell', //описание страницы
+    'page callback' => 'it_novell_page_users_context_sum',
+    'access arguments' => array('access protected it_novell_search'), //  Ограничиваем доступ, по ролям через hook_permission
+    'weight' => 300,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['it_novell/logs'] = array(
+    'title' => 'История запросов',
+    'description' => 'Кто кого когда искал',
+    'page callback' => 'it_novel_page_logrequest',
+    'access arguments' => array('access protected it_novell_logs'),
+    'weight' => 500,
+    'type' => MENU_LOCAL_TASK,
+//    'weight' => -1,
+//    'file' => 'dblog.admin.inc',
+  );
+
+
+
+  $items['it_novell/arm'] = array(
+    'title' => 'Учет АРМ', //заголовок страницы
+    'page callback' => 'it_novell_page_arm',
+    'access arguments' => array('access protected it_novell_arm'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_LOCAL_TASK,    
+  );
+  
+  $items['it_novell/arm/arm'] = array(
+    'title' => 'Учет АРМ', //заголовок страницы
+    'description' => 'Учет имен АРМов', //описание страницы    
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 10,
+  );  
+  
+  $items['it_novell/arm/dns'] = array(
+    'title' => 'Наличие в DNS', //заголовок страницы
+    'description' => 'Проверка на наличеие имен в DNS', //описание страницы    
+    //'page callback' => 'it_novell_page_dns',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('it_novell_form_arm_dns'),
+    'access arguments' => array('access protected it_novell_arm'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 400,
+  );  
+
+  $items['it_novell/arm/autocomplete'] = array(
+    'page callback' => 'it_novell_autocomplete_arm',
+    'access arguments' => array('access protected it_novell_arm'),
+    'type' => MENU_CALLBACK,
+  );
+
+
+
+  return $items;
+}
+
+/**
+ *  Обрабатваем присланный POST запрос
+ */
+function it_novell_post_get() {
+
+//  "Novell CN": "---",
+//  "Novell FullName": "---",
+//  "LOGIN_CONTEXT": "---",
+//  "System Name": "MICROSOF-36EAC8",
+//  "System Manufacturer": "innotek GmbH",
+//  "System Model": "VirtualBox",
+//  "Time Zone": "180",
+//  "Total Physical Memory": "536330240",
+//  "System Type": "0",
+//  "Processor": "x86 Family 6 Model 23 Stepping 10",
+//  "OS Name": "Microsoft Windows XP Professional",
+//  "Version": "5.1.2600",
+//  "Service Pack": "3.0",
+//  "OS Manufacturer": "Microsoft Corporation",
+//  "Serial Number": "76456-640-2394127-23465",
+//  "Locale": "0419",
+//  "Available Physical Memory": "327836",
+//  "Total Virtual Memory": "2097024",
+//  "Available Virtual Memory": "2035616",
+//  "Size stored in paging files": "1279692",
+//  "Registered User": "Admin",
+//  "Current User": "Admin",
+//  "Login": "No interactive users found",
+//  "END": "END"  
+  $IP = $_SERVER['REMOTE_ADDR'];
+  $json = file_get_contents('php://input');
+  // если кто-то дернул просто урл тогда ничего неделаем 
+  if (empty($json)) {
+    // Необходимо запротоколировать откуда пришел пустой запрос.    
+    exit;
+  }
+
+  //file_put_contents('/opt/drbd/www/drp_journal/json_raw.log', $json . PHP_EOL . PHP_EOL, FILE_APPEND);
+  $obj = json_decode($json);
+
+  $NOVELL_LOGIN = $obj->{'Novell CN'};
+  if (is_null($NOVELL_LOGIN)) {
+    $NOVELL_LOGIN = '-NULL-';
+  }
+  
+  $HOSTNAME = $obj->{'System Name'};
+  
+  $NOVELL_CONTEXT = $obj->{'LOGIN_CONTEXT'};
+  // Берем логин и контекст  ищем наличие в бд, если нет то добавляем.
+  $ID = db_select('it_novell_user', 'u')
+      ->fields('u', array('id'))
+      ->condition('u.novell_login', trim($NOVELL_LOGIN))
+      ->condition('u.novell_context', trim($NOVELL_CONTEXT))
+      ->execute()
+      ->fetchCol();
+  //если есть то обновляем 
+  if (count($ID) > 0) {
+    db_update('it_novell_user')
+        ->fields(array(
+          'full_name' => trim($obj->{'Novell FullName'}),
+          'last_ip' => $IP,
+          // Данные по систмной части   
+          'last_sys_name' => trim($obj->{'System Name'}),
+          'last_sys_manufacturer' => trim($obj->{'System Manufacturer'}),
+          'last_sys_model' => trim($obj->{'System Model'}),
+          // Данные ОС      
+          'last_os_name' => trim($obj->{'OS Name'}),
+          'last_os_version' => trim($obj->{'Version'}),
+          'last_os_user' => trim($obj->{'Current User'}), // под какой локальной учеткой пользователей сидит    
+          // Фиксируем текущее время, на которое актуальнаданная информация    
+          'last_time_check' => time(),
+            )
+        )
+        ->condition('id', $ID[0])
+        ->execute();
+  }
+  else {
+    $insert = db_insert('it_novell_user')
+        ->fields(array(
+          'novell_login' => $NOVELL_LOGIN,
+          'novell_context' => $NOVELL_CONTEXT,
+          'full_name' => trim($obj->{'Novell FullName'}),
+          'last_ip' => $IP,
+          // Данные по системной части   
+          'last_sys_name' => trim($obj->{'System Name'}),
+          'last_sys_manufacturer' => trim($obj->{'System Manufacturer'}),
+          'last_sys_model' => trim($obj->{'System Model'}),
+          // Данные ОС      
+          'last_os_name' => trim($obj->{'OS Name'}),
+          'last_os_version' => trim($obj->{'Version'}),
+          'last_os_user' => trim($obj->{'Current User'}), // под какой локальной учеткой пользователей сидит    
+          // Фиксируем текущее время, на которое актуальнаданная информация    
+          'last_time_check' => time(),
+        ))
+        ->execute();
+  }
+
+  //it_novell_send2dns($IP, "$NOVELL_LOGIN.$NOVELL_CONTEXT", 'arm.metcombank.net');
+  it_novell_send2dns($IP, "$NOVELL_LOGIN.$HOSTNAME", 'arm.metcombank.net');
+  
+}
+
+/**
+ * Implements hook_forms();
+ */
+function it_novell_search_forms($form_id, &$form_state) {
+
+  //. ***** Проверка привелегий данного пользователя
+  drupal_set_title('Я тебя по IP вычислю');
+  $form['novell_search'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('f_bss')),
+  );
+
+  $form['novell_search']['fio'] = array(
+    '#type' => 'textfield',
+    '#title' => 'ФИО',
+    '#size' => 40,
+    '#maxlength' => 30,
+    //'#attributes' => array('class' => array('frm_bss')),
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+  $form['novell_search']['login'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Login',
+    '#size' => 20,
+    '#maxlength' => 20, // Визуальная часть
+//    '#attributes' => array('class' => array('frm_bss')),
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+  $form['novell_search']['context'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Context',
+    '#size' => 12,
+    '#maxlength' => 12,
+    //  '#attributes' =>  array('class' => array('frm_bss')),
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+  $form['novell_search']['ip'] = array(
+    '#type' => 'textfield',
+    '#title' => 'IP',
+    '#size' => 15,
+    '#maxlength' => 15,
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+  $form['submit'] = array(
+    '#value' => 'Найти',
+    '#type' => 'submit',
+    '#submit' => array('it_novell_search_submit'),
+    '#attributes' => array('class' => array('btn find')),
+  );
+
+//  $form['#attached']['css'] = array(
+//    drupal_get_path('module', 'bssdbo') . '/css/style.css',
+//  );
+  // If the form has been submitted, output something related to the submission
+  if (!empty($form_state['values']['fio']) ||
+      !empty($form_state['values']['login']) ||
+      !empty($form_state['values']['context']) ||
+      !empty($form_state['values']['ip'])) {
+    $form['submission'] = array(
+      '#markup' => it_novell_user_search($form_state['values'])
+    );
+
+//    $form['pager'] = array(
+//      '#markup' => theme('pager')
+//    );
+  }
+//  $form['pager'] = array(
+//		'#markup' => theme('pager'),
+//		'#weight' => 12,
+//	);
+  return $form;
+}
+
+/**
+ *  hook_submit
+ * @global type $user
+ * @param type $form
+ * @param type $form_state
+ */
+function it_novell_search_submit($form, &$form_state) {
+  $dbg = 0;
+  $form_state['rebuild'] = TRUE;
+  //$form_state['redirect'] = '/';
+}
+
+/**
+ *  Функция поиска клиента в ЧК
+ * 
+ * @param type $param
+ */
+function it_novell_user_search($param) {
+  global $user;
+  $content = '';
+//  $cnt_from = 0; // Начальная позиция с которой выгребаем
+//  $step = 20;  // Количество записей на стрнаицу
+//  $url_param = drupal_get_query_parameters();
+//
+//  if (isset($url_param['page']) && is_numeric($url_param['page'])) {
+//    $cnt_from = $step * $url_param['page'];
+//  }
+//  
+/// Протоколируем кто, кого и когда искал  
+//  $query_insert = db_insert('bssdbo_log')
+//      ->fields(array(
+//        'uid' => $user->uid,
+//        'time' => time(),
+//        'request_system' => $BSS_DB['type'],
+//        'request_name' => ( $param['fio'] !== "" ? $param['fio'] : NULL),
+//        'request_id' => (is_numeric($param['client_id']) ? $param['client_id'] : NULL),
+//        'request_phone' => ($param['client_phone'] !== "" ? $param['client_phone'] : NULL),
+//      ))
+//      ->execute();
+  // Заголовок таблицы
+  $header = array(
+    array('data' => 'Ф.И.О', 'field' => 'full_name'),
+    array('data' => 'N: Login', 'field' => 'novell_login'),
+    array('data' => 'N: Context', 'field' => 'novell_context'),
+    array('data' => 'OS: Login', 'field' => 'las_os_user'),
+    array('data' => 'IP', 'field' => 'last_ip'),
+    array('data' => 'HOSTNAME', 'field' => 'last_sys_name'),
+    array('data' => 'HW: Производитель', 'field' => 'last_sys_manufacturer'),
+    array('data' => 'HW: Модель', 'field' => 'last_sys_model'),
+    array('data' => 'OS: Name', 'field' => 'last_os_name'),
+    array('data' => 'OS: Version', 'field' => 'last_os_version'),
+    array('data' => 'Было', 'field' => 'last_time_check', 'sort' => 'DESC'),
+  );
+
+
+  $LOGIN = $param['login'];
+  $CONTEXT = $param['context'];
+
+  $query_insert = db_insert('it_novell_log')
+      ->fields(array(
+        'uid' => $user->uid,
+        'time' => time(),
+        'request_name' => ( $param['fio'] !== "" ? $param['fio'] : NULL),
+        'request_login' => ( $param['login'] !== "" ? $param['login'] : NULL),
+        'request_context' => ($param['context'] !== "" ? $param['context'] : NULL),
+        'request_ip' => ($param['ip'] !== "" ? $param['ip'] : NULL),
+      ))
+      ->execute();
+
+
+  $query = db_select('it_novell_user', 'u')
+      ->fields('u');
+
+  // Условие поиска по ФИО , части
+  if (isset($param['fio']) && $param['fio'] !== '') {
+    $query->where('UPPER(full_name) like :name ', array(':name' => "%" . mb_strtoupper($param['fio']) . "%"));
+  }
+
+  // Если передан Login  клиента в чк
+  if (isset($param['login']) && $param['login'] !== '') {
+    $query->condition('u.novell_login', $param['login'], '=');
+  }
+
+
+  // Если передан novell context
+  if (isset($param['context']) && $param['context'] !== '') {
+    $query->condition('u.novell_context', "%" . mb_strtoupper($param['context']) . "%", 'LIKE');
+  }
+
+  // Если передан IP  клиента в чк
+  if (isset($param['ip']) && $param['ip'] !== '') {
+    $query->condition('u.last_ip', $param['ip'], '=');
+  }
+
+
+  // $query->orderBy('u.full_name', 'ASC');   
+  //$query->orderBy('u.last_time_check', 'DESC');   
+  // Add the pager.
+  $query = $query
+      ->extend('PagerDefault');
+  // Add the table sort extender.
+//  $query->orderByHeader($header);
+  $query
+      ->extend('TableSort')
+      ->orderByHeader($header);
+  //$query->range($cnt_from, $step);
+
+  $result = $query->execute();
+  //$total = $query->countQuery()->execute()->fetchField();
+  //$total = $result->rowCount; 
+  // Если результат запроса нулевой тогда горестно об этом сообщим 
+  $rows = $result->fetchAll(PDO::FETCH_ASSOC);
+  if (count($rows) == 0) {
+    $content = '<div class="messages status"><h1  class="bss_txt_center">' .
+        '<img src="/sites/default/files/icons/house.gif">' .
+        ' Пичаль ничего нет, совсем совсем ничего нет </h1> </div>';
+    return $content;
+  }
+
+  //.******** Визуализация данных на страницу  
+
+  //$legen_msg = "Количество найденных совпадений: " . count($rows) . "<br> RowCount $cnt_res";
+
+
+  $aRows = array();
+  foreach ($rows as $row) {
+
+    $ago = format_interval((time() - (int) $row['last_time_check']), 2) . " назад";
+    // Формируем записи таблицы
+    $aRows[] = array(
+      $row['full_name'],
+      $row['novell_login'],
+      $row['novell_context'],
+      $row['last_os_user'],
+      $row['last_ip'],
+      $row['last_sys_name'],
+      $row['last_sys_manufacturer'],
+      $row['last_sys_model'],
+      $row['last_os_name'],
+      $row['last_os_version'],
+      $ago,
+    );
+  }
+
+  $table_element = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $aRows,
+    '#empty' => t('No result was found'),
+      //'#prefix' => '<div style="width: 100%; border: 2px dashed black"><h2 >' . $legen_msg . '</h2>',
+      //'#suffix' => '</div>',
+  );
+  //$content .= render($table_element);
+
+  $content .= theme('table', array('header' => $header, 'rows' => $aRows));
+  //$content .= theme('pager', array('quantity' => 10));
+  $content .= theme('pager');
+  return $content;
+}
+
+function it_novell_page_search_user() {
+  $content = 'Hello evrybody';
+
+  $content .= render(drupal_get_form('it_novell_search_forms'));
+
+  return $content;
+}
+
+function it_novell_page_users($arg) {
+
+  drupal_set_title('Список пользователей контекста: ' . $arg);
+  // Заголовок таблицы
+  $header = array(
+    array('data' => 'Ф.И.О', 'field' => 'full_name'),
+    array('data' => 'N: Login', 'field' => 'novell_login'),
+    array('data' => 'N: Context', 'field' => 'novell_context'),
+    array('data' => 'OS: Login', 'field' => 'last_os_user'),
+    array('data' => 'IP', 'field' => 'last_ip'),
+    array('data' => 'HOSTNAME', 'field' => 'last_sys_name'),
+    array('data' => 'HW: Производитель', 'field' => 'last_sys_manufacturer'),
+    array('data' => 'HW: Модель', 'field' => 'last_sys_model'),
+    array('data' => 'OS: Name', 'field' => 'last_os_name'),
+    array('data' => 'OS: Version', 'field' => 'last_os_version'),
+    array('data' => 'Было', 'field' => 'last_time_check', 'sort' => 'DESC'),
+  );
+
+  $query = db_select('it_novell_user', 'u')
+      ->fields('u')
+      ->condition('u.novell_context', $arg, '=');
+
+  // $query->orderBy('u.full_name', 'ASC');   
+  //$query->orderBy('u.last_time_check', 'DESC');   
+  // Add the pager.
+  $query = $query
+      ->extend('PagerDefault')
+      ->limit(30);
+
+  $query->extend('TableSort')->orderByHeader($header);
+
+
+  $result = $query->execute();
+
+  // Если результат запроса нулевой тогда горестно об этом сообщим 
+  $rows = $result->fetchAll(PDO::FETCH_ASSOC);
+  if (count($rows) == 0) {
+    $content = '<div class="messages status"><h1  class="bss_txt_center">' .
+        '<img src="/sites/default/files/icons/house.gif">' .
+        ' Пичаль ничего нет, совсем совсем ничего нет </h1> </div>';
+    return $content;
+  }
+
+  //.******** Визуализация данных на страницу  
+  $content = '';
+  $aRows = array();
+  foreach ($rows as $row) {
+
+    $ago = format_interval((time() - (int) $row['last_time_check']), 2) . " назад";
+    // Формируем записи таблицы
+    $aRows[] = array(
+      $row['full_name'],
+      $row['novell_login'],
+      $row['novell_context'],
+      $row['last_os_user'],
+      $row['last_ip'],
+      $row['last_sys_name'],
+      $row['last_sys_manufacturer'],
+      $row['last_sys_model'],
+      $row['last_os_name'],
+      $row['last_os_version'],
+      $ago,
+    );
+  }
+
+  $table_element = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $aRows,
+    '#empty' => t('No result was found'),
+      //'#prefix' => '<div style="width: 100%; border: 2px dashed black"><h2 >' . $legen_msg . '</h2>',
+      //'#suffix' => '</div>',
+  );
+  //$content .= render($table_element);
+
+  $content .= theme('table', array('header' => $header, 'rows' => $aRows));
+  //$content .= theme('pager', array('quantity' => 10));
+  $content .= theme('pager');
+  return $content;
+}
+
+/**
+ * Выводим  статистическую информацию по пользователям в Novell по контексте
+ * 
+ * @return string
+ */
+function it_novell_page_users_context_sum() {
+  // SELECT novell_context, count(id) FROM drp_journal.it_novell_user
+  //group by novell_context;
+
+  $content = "";
+  $query = db_select('it_novell_user', 'nc')
+      ->fields('nc', array('novell_context'));
+  $query->addExpression('count(nc.id)', 'cnt');
+  $query->groupBy('novell_context');
+
+  $header = array(
+    'Novell Context',
+    'Count'
+  );
+
+  $result = $query->execute();
+
+  // Если результат запроса нулевой тогда горестно об этом сообщим 
+  $rows = $result->fetchAll(PDO::FETCH_ASSOC);
+  if (count($rows) == 0) {
+    $content = '<div class="messages status"><h1  class="bss_txt_center">' .
+        '<img src="/sites/default/files/icons/house.gif">' .
+        ' Пичаль ничего нет, совсем совсем ничего нет </h1> </div>';
+    return $content;
+  }
+
+  $aRows = array();
+  $SUM = 0;
+  foreach ($rows as $row) {
+    $SUM += $row['cnt'];
+    // Формируем записи таблицы
+    $aRows[] = array(
+      "<a href=/it_novell/list/" . $row['novell_context'] . ">" . $row['novell_context'] . "</a>",
+      $row['cnt'],
+    );
+  }
+
+  $table_element = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $aRows,
+    '#empty' => t('No result was found'),
+      //'#prefix' => '<div style="width: 100%; border: 2px dashed black"><h2 >' . $legen_msg . '</h2>',
+      //'#suffix' => '</div>',
+  );
+  $content .= render($table_element);
+  $content .= "<h2> Итого: $SUM </h2>";
+  //$content .= theme('table', array('header' => $header, 'rows' => $aRows));
+
+  return $content;
+}
+
+/**
+ *  Визуализация журнала запросов. Кто что искал через форму поиска  
+ * @return string
+ */
+function it_novel_page_logrequest() {
+
+  $cnt_from = 0; // Начальная позиция с которой выгребаем
+  $step = 20;  // Количество записей на стрнаицу
+  $url_param = drupal_get_query_parameters();
+  if (isset($url_param['page']) && is_numeric($url_param['page'])) {
+    $cnt_from = $step * $url_param['page'];
+  }
+
+  $content = '';
+
+  $header = array(
+    array(
+      'data' => 'Время',
+      'field' => 'log.time',
+      'sort' => 'DESC'
+    ),
+    array(
+      'data' => 'Логин',
+    ),
+    array(
+      'data' => 'S: Ф.И.О',
+    ),
+    array(
+      'data' => 'S: Логин',
+    ),
+    array(
+      'data' => 'S: Context',
+    ),
+    array(
+      'data' => 'S: IP',
+    ),
+  );
+
+  $query = db_select('it_novell_log', 'log');
+  $query->fields('log')
+      ->extend('TableSort')
+      ->orderByHeader($header);
+
+  $query->innerJoin('users', 'usr', 'usr.uid = log.uid');
+  $query->addField('usr', 'name', 'drp_login');
+  //. Узнаем сколько записей чтобы построить пагинатор
+  $total = $query->countQuery()->execute()->fetchField(); //.HACK Driver oracle private ->publick  
+
+  $query->range($cnt_from, $step);
+  $db_q = $query->execute();
+  $result = $db_q->fetchAll();
+
+  foreach ($result as $row) {
+    $aRows[] = array(
+      //date('d-m-Y H:i:s' ,$row->time),
+      format_date($row->time),
+      $row->drp_login,
+      (isset($row->request_name) ? $row->request_name : ''),
+      (isset($row->request_login) ? $row->request_login : ''),
+      (isset($row->request_context) ? $row->request_context : ''),
+      (isset($row->request_ip) ? $row->request_ip : ''),
+    );
+  }
+  pager_default_initialize($total, $step, $element = 0);
+  $content .= theme('table', array('header' => $header, 'rows' => $aRows));
+  $content .= theme('pager', array('quantity' => $step));
+
+  return $content;
+}
+
+/**
+ *  Добавление записи в DNS  
+ * 
+ * @param type $ip
+ * @param type $hostname
+ */
+function it_novell_send2dns($ip, $hostname, $zone) {
+  $keyfile = drupal_get_path('module', 'it_novell') . '/key/Kblackbox.+157+19077.private';
+  $logfile = drupal_get_path('module', 'it_novell') . '/key/exec.log';
+  $file = drupal_get_path('module', 'it_novell') . '/key/drp2dns.txt';
+
+  $arpa = explode('.', $ip);
+  $ip_revers = "$arpa[3].$arpa[2].$arpa[1].$arpa[0]";
+  $hostname = "$hostname.$zone";
+
+  $record = mb_strtolower("$hostname 10800 IN A $ip");
+  $record_IN = mb_strtolower("$ip_revers.in-addr.arpa. 10800 IN PTR $hostname.");
+  $zone = "zone $arpa[1].$arpa[0].IN-ADDR.ARPA";
+  $cmd_dns = array(
+    'server 172.16.0.10',
+    //'zone ' . $zone,
+    //'update add ' . $record,
+    //'send',
+//    'zone 16.172.IN-ADDR.ARPA',
+    $zone,
+    'update add ' . $record_IN,
+    'send'
+  );
+
+  file_put_contents($logfile, print_r($cmd_dns, TRUE), FILE_APPEND);
+  // Готовим файл с командами на вход nsupdate     
+  file_put_contents($file, implode(PHP_EOL, $cmd_dns));
+
+  $output = array();
+  $return_var = 0;
+  $command = '/usr/bin/nsupdate -k ' . $keyfile . ' -v ' . $file;
+  exec($command, $output, $return_var);
+  file_put_contents($logfile, print_r($output, TRUE), FILE_APPEND);
+}
+
+function it_novell_page_dns() {
+  $content = "DNS EPTA!\n";
+  $form = drupal_render(drupal_get_form('it_novell_form_arm_dns'));
+  $content .= $form;
+
+
+  return $content;
+}
+
+/**
+ *  
+ * @return string
+ */
+function it_novell_page_dns_2() {
+  $content = "DNS EPTA!\n";
+
+  $query = db_select('it_novell_arm', 'a');
+  $query->innerJoin('users', 'u', 'a.uid = u.uid');
+  $query->innerJoin('node', 'n', 'a.nid = n.nid');
+  $query->addField('a', 'uid');
+  $query->addField('a', 'nid');
+  $query->addField('a', 'arm_hostname');
+  $query->addField('n', 'title');
+  $query->addField('u', 'name');
+
+  $ahostnames = $query->execute()->fetchAll();
+
+  $header = array(
+    'HOSTNAME',
+    'GEO',
+    'IP',
+    'user',
+  );
+
+  $aRows = array();
+  foreach ($ahostnames as $item) {
+    $user_name = $item->name;
+    $hostname_t = $item->arm_hostname;
+    $hostname = $item->arm_hostname . '.arm.metcombank.net';
+    $geo = $item->title;
+    $ip = gethostbyname($hostname);
+    if ($ip === $hostname) {
+      $ip = '<div class="messages warning">Not in DNS </div>';
+      $ip = '0.0.0.0';
+      $hostname_t = '<div class="messages error">' . $hostname_t . '</div>';
+    }
+    else {
+      $hostname_t = '<div class="messages status">' . $hostname_t . '</div>';
+    }
+
+    $geo_title = l($geo, 'node/' . $item->nid, array('attributes' => array('class' => 'about-link')));
+
+
+    $aRows[] = array(
+      $hostname_t,
+      $geo_title,
+      $ip,
+      $user
+    );
+  }
+
+
+  $table_element = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $aRows,
+    '#empty' => t('No result was found'),
+      //'#prefix' => '<div style="width: 100%; border: 2px dashed black"><h2 >' . $legen_msg . '</h2>',
+      //'#suffix' => '</div>',
+  );
+  $content .= render($table_element);
+
+
+  return $content;
+}
+
+/**
+ * Implements hook_forms();
+ */
+function it_novell_dns_form_add($form_id, &$form_state) {
+
+  //drupal_set_title('Я тебя по IP вычислю');
+  $form['DNS'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('f_bss')),
+  );
+
+  $form['DNS']['domain'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Домен',
+    '#size' => 40,
+    '#maxlength' => 30,
+    //'#attributes' => array('class' => array('frm_bss')),
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+  $form['DNS']['ip'] = array(
+    '#type' => 'textfield',
+    '#title' => 'IP',
+    '#size' => 20,
+    '#maxlength' => 20, // Визуальная часть
+//    '#attributes' => array('class' => array('frm_bss')),
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+  $form['submit'] = array(
+    '#value' => 'Найти',
+    '#type' => 'submit',
+    '#submit' => array('it_novell_search_submit'),
+    '#attributes' => array('class' => array('btn find')),
+  );
+
+  return $form;
+}
+
+/**
+ *  
+ * @return string
+ */
+function it_novell_page_arm() {
+  $content = "";
+  drupal_set_title('You in the ARM y Now');
+  $content .= render(drupal_get_form('it_novell_form_armadd'));
+  return $content;
+}
+
+/**
+ * Implements hook_forms();
+ */
+function it_novell_form_armadd($form_id, &$form_state) {
+
+  // ПОЛУЧАЕМ  NID - TITLE  всех геообъектов
+  // Return all nids of nodes of type "page".
+  $nids = db_select('node', 'n')
+      ->fields('n', array('nid', 'title'))
+      ->condition('n.type', 'geo_object')
+      ->execute()
+      ->fetchAllKeyed();
+  $dbg = 0;
+
+  foreach ($nids as $nid => $title) {
+    $options[$nid] = $title;
+  }
+
+  //. ***** Проверка привелегий данного пользователя
+
+  $form['armadd'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('f_bss')),
+  );
+
+  $form['armadd']['geo'] = array(
+    '#type' => 'select',
+    '#title' => 'Геообъект',
+    '#options' => $options,
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+  $form['armadd']['hostname'] = array(
+    '#type' => 'textfield',
+    '#title' => 'HOSTNAME',
+    '#size' => 25, // Визуальная часть
+    '#maxlength' => 15,
+    '#autocomplete_path' => 'it_novell/arm/autocomplete',
+    '#attributes' => array('class' => array('frm_bss')),
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+//  $form['armadd']['ip'] = array(
+//    '#type' => 'textfield',
+//    '#title' => 'IP',
+//    '#size' => 15,
+//    '#maxlength' => 15,
+//    '#prefix' => '<div class="frm_bss">',
+//    '#suffix' => '</div>',
+//  );  
+//  
+  $form['submit'] = array(
+    '#value' => 'Добавить',
+    '#type' => 'submit',
+    '#submit' => array('it_novell_armadd_submit'),
+    '#attributes' => array('class' => array('btn find')),
+  );
+
+//  $form['#attached']['css'] = array(
+//    drupal_get_path('module', 'bssdbo') . '/css/style.css',
+//  );
+  // If the form has been submitted, output something related to the submission
+  if (!empty($form_state['values']['geo']) || !empty($form_state['values']['hostname'])) {
+    $form['submission'] = array(
+      '#markup' => it_novell_armadd($form_state['values'])
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_forms();
+ *  Валидация  происходить ранше чем subbmit
+ */
+function it_novell_form_armadd_validate($form_id, &$form_state) {
+  $dbg = 0;
+  $nid = trim($form_state['values']['geo']);
+  $HOSTNAME = trim(strtoupper($form_state['values']['hostname']));
+
+  if ($HOSTNAME === "") {
+    form_set_error('hostname', 'Имя не может быть пустым!');
+    return;
+  }
+
+  // Проверяем на некоректные сиволы.
+  $isLatin = preg_match('/[^\p{Common}\p{Latin}]/u', $HOSTNAME);
+  if ($isLatin == 1) {
+    form_set_error('hostname', 'Присутсвуют не допустимые символы');
+    return;
+  }
+
+  // Проверяем есть такой HOSTNAME в Таблице.
+  $result = db_select('it_novell_arm', 'a')
+      ->fields('a', array('nid', 'arm_hostname'))
+      ->condition('arm_hostname', $HOSTNAME, '=')
+      ->execute()
+      ->fetchAll();
+  // Если видим, что  уже есть такой , проверим не изменилась ли гео принадлежность
+  // и если нет , то шлем лесом 
+  $form_state['values']['armop'] = "add";
+  if (count($result) > 0) {
+    if ($result[0]->nid == $nid) {
+      form_set_error('hostname', 'Такой ARM уже существует.');
+    }
+    else {
+      $form_state['values']['armop'] = "up";
+    }
+  }
+
+// если результат не 0 смотрим изменился ли        
+}
+
+/**
+ *  hook_submit
+ * @global type $user
+ * @param type $form
+ * @param type $form_state
+ */
+function it_novell_armadd_submit($form, &$form_state) {
+  $dbg = 0;
+  $form_state['rebuild'] = TRUE;
+  //$form_state['redirect'] = '/';
+}
+
+function it_novell_armadd($param) {
+  global $user;
+  $dbg = 0;
+  $HOSTNAME = trim(strtoupper($param['hostname']));
+  $nid = $param['geo'];
+  $uid = $user->uid;
+
+  $op = $param['armop'];
+
+
+  switch ($op) {
+    case 'add':
+      $insert = db_insert('it_novell_arm')
+          ->fields(array(
+            // Кто добавил
+            'uid' => $uid,
+            // с каким гео объектом связан
+            'nid' => $nid,
+            // Фиксируем текущее время, на которое актуальнаданная информация    
+            'added' => time(),
+            'arm_hostname' => $HOSTNAME,
+          ))
+          ->execute();
+      //drupal_set_message(t('Something @var just happened.'), array('@var' => $horrible), 'nuke'); 
+      drupal_set_message("Добавлен АРМ: $HOSTNAME");
+      break;
+
+    case 'up':
+      db_update('it_novell_arm')
+          ->fields(array(
+            'uid' => $uid,
+            'nid' => $nid,
+            'updated' => time(),
+          ))
+          ->condition('arm_hostname', $HOSTNAME)
+          ->execute();
+      drupal_set_message("Обновлен АРМ: $HOSTNAME");
+      break;
+  }
+}
+
+/**
+ * Autocomplete callback.
+ */
+function it_novell_autocomplete_arm($string) {
+  $dbg = 0;
+  $string = trim(strtoupper($string));
+  // для примера, возвратим заголовки нод
+  $result = db_select('it_novell_arm', 'a')
+      ->fields('a', array('arm_hostname'))
+      ->condition('arm_hostname', '%' . db_like($string) . '%', 'LIKE')
+      ->range(0, 10)
+      ->execute();
+
+  $matches = array();
+  foreach ($result as $row) {
+    //$matches[$row->title] = check_plain($row->arm_hostname);
+    $matches[$row->arm_hostname] = check_plain($row->arm_hostname);
+  }
+
+  drupal_json_output($matches);
+}
+
+function it_novell_arm_list($values) {
+  $dbg = 0;
+  drupal_set_title('Список пользователей контекста: ' . $arg);
+  // Заголовок таблицы
+  $header = array(
+    array('data' => 'HOSTNAME', 'field' => 'a.arm_hostname'),
+    array('data' => 'GEO', 'field' => 'n.title'),
+    array('data' => 'IP'),
+    array('data' => 'USER', 'field' => 'u.name'),
+  );
+
+
+  // $query->orderBy('u.full_name', 'ASC');   
+  //$query->orderBy('u.last_time_check', 'DESC');   
+
+  $query = db_select('it_novell_arm', 'a');
+  $query->innerJoin('users', 'u', 'a.uid = u.uid');
+  $query->innerJoin('node', 'n', 'a.nid = n.nid');
+  $query->addField('a', 'uid');
+  $query->addField('a', 'nid');
+  $query->addField('a', 'arm_hostname');
+  $query->addField('n', 'title');
+  $query->addField('u', 'name');
+
+  if ($values['hostname']) {
+    $query->condition('a.arm_hostname', "%" . mb_strtoupper($values['hostname']) . "%", 'LIKE');
+  }
+
+  // Add the pager.
+  $query = $query
+      ->extend('PagerDefault')
+      ->limit(30);
+
+  $query->extend('TableSort')->orderByHeader($header);
+
+
+  $result = $query->execute();
+
+  // Если результат запроса нулевой тогда горестно об этом сообщим 
+  $rows = $result->fetchAll(PDO::FETCH_ASSOC);
+  if (count($rows) == 0) {
+    $content = '<div class="messages status"><h1  class="bss_txt_center">' .
+        '<img src="/sites/default/files/icons/house.gif">' .
+        ' Пичаль ничего нет, совсем совсем ничего нет </h1> </div>';
+    return $content;
+  }
+
+  //.******** Визуализация данных на страницу  
+  $content = '';
+  $aRows = array();
+  foreach ($rows as $row) {
+    $hostname = $row['arm_hostname'] . '.arm.metcombank.net';
+    $hostname_short = $row['arm_hostname'];
+    $ip = gethostbyname($hostname);
+
+    if ($ip === $hostname) {
+      $ip = '<div class="messages warning">Not in DNS </div>';
+      $ip = '0.0.0.0';
+      $hostname_t = '<div class="messages error">' . $hostname_short . '</div>';
+    }
+    else {
+      $hostname_t = '<div class="messages status">' . $hostname_short . '</div>';
+    }
+
+    $ago = format_interval((time() - (int) $row['last_time_check']), 2) . " назад";
+    // Формируем записи таблицы
+    $aRows[] = array(
+      $hostname_t,
+      $row['title'],
+      $ip,
+      $row['name'],
+    );
+  }
+
+  $table_element = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $aRows,
+    '#empty' => t('No result was found'),
+      //'#prefix' => '<div style="width: 100%; border: 2px dashed black"><h2 >' . $legen_msg . '</h2>',
+      //'#suffix' => '</div>',
+  );
+  //$content .= render($table_element);
+
+  $content .= theme('table', array('header' => $header, 'rows' => $aRows));
+  //$content .= theme('pager', array('quantity' => 10));
+  $content .= theme('pager');
+
+  return $content;
+}
+
+/**
+ * Implements hook_forms();
+ */
+function it_novell_form_arm_dns($form_id, &$form_state, $selected_value = FALSE) {
+  drupal_set_title('');
+  $dbg = 0;
+
+  $form['armadd'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('f_bss')),
+  );
+
+  $form['armadd']['hostname'] = array(
+    '#type' => 'textfield',
+    '#title' => 'HOSTNAME',
+    '#size' => 25, // Визуальная часть
+    '#maxlength' => 15,
+    '#autocomplete_path' => 'it_novell/arm/autocomplete',
+    '#attributes' => array('class' => array('frm_bss')),
+    '#prefix' => '<div class="frm_bss">',
+    '#suffix' => '</div>',
+  );
+
+  $form['submit'] = array(
+    '#value' => 'Поиск',
+    '#type' => 'submit',
+    //'#submit' => array('it_novell_form_arm_dns_submit'),
+    '#attributes' => array('class' => array('btn find')),
+  );
+
+
+
+  // Заголовок таблицы
+  $header = array(
+    array('data' => 'HOSTNAME', 'field' => 'a.arm_hostname'),
+    array('data' => 'GEO', 'field' => 'n.title'),
+    array('data' => 'IP'),
+    array('data' => 'USER', 'field' => 'u.name'),
+  );
+
+
+  $query = db_select('it_novell_arm', 'a');
+  $query->innerJoin('users', 'u', 'a.uid = u.uid');
+  $query->innerJoin('node', 'n', 'a.nid = n.nid');
+  $query->addField('a', 'uid');
+  $query->addField('a', 'nid');
+  $query->addField('a', 'arm_hostname');
+  $query->addField('n', 'title');
+  $query->addField('u', 'name');
+
+
+
+  if (isset($form_state['values']['hostname'])) {
+    $HOSTNAME = ($form_state['values']['hostname']);
+  }
+  if (isset($selected_value)) {
+    $HOSTNAME = $selected_value;
+  }
+
+
+  if (isset($HOSTNAME)) {
+    $query->condition('a.arm_hostname', "%" . mb_strtoupper($HOSTNAME) . "%", 'LIKE');
+  }
+
+  // Add the pager.
+  $query = $query
+      ->extend('PagerDefault')
+      ->limit(10);
+
+  $query->extend('TableSort')->orderByHeader($header);
+  $result = $query->execute();
+
+  // Если результат запроса нулевой тогда горестно об этом сообщим 
+  $rows = $result->fetchAll(PDO::FETCH_ASSOC);
+  if (count($rows) != 0) {
+
+    //.******** Визуализация данных на страницу  
+    $content = '';
+    $aRows = array();
+    foreach ($rows as $row) {
+      $hostname = $row['arm_hostname'] . '.arm.metcombank.net';
+      $hostname_short = $row['arm_hostname'];
+      $ip = gethostbyname($hostname);
+
+      if ($ip === $hostname) {
+        $ip = '<div class="messages warning">Not in DNS </div>';
+        $ip = '0.0.0.0';
+        $hostname_t = '<div class="messages error">' . $hostname_short . '</div>';
+      }
+      else {
+        $hostname_t = '<div class="messages status">' . $hostname_short . '</div>';
+      }
+
+      //$ago = format_interval((time() - (int) $row['last_time_check']), 2) . " назад";
+      // Формируем записи таблицы
+      $aRows[] = array(
+        $hostname_t,
+        $row['title'],
+        $ip,
+        $row['name'],
+      );
+    }
+
+
+    $form['table'] = array(
+      '#type' => 'tableselect',
+      '#header' => $header,
+      '#options' => $aRows,
+      //'#rows' => $chunks[$current_page],
+      '#weight' => 10,
+    );
+
+    $form['pager'] = array(
+      '#markup' => theme('pager'),
+      '#weight' => 12,
+    );
+  }
+  else {
+    $form['contact_information'] = array(
+      '#markup' => '<div class="messages status"><h1  class="bss_txt_center">' .
+      '<img src="/sites/default/files/icons/house.gif">' .
+      ' Пичаль ничего нет, совсем совсем ничего нет </h1> </div>',
+      '#weight' => 8,
+    );
+  }
+
+
+  return $form;
+}
+
+function it_novell_form_arm_dns_submit($form_id, &$form_state) {
+  $dbg = 0;
+  //$form_state['rebuild'] = TRUE;
+  // Redirect to the form, appending the selected value to the path.
+  // the selected value will then become $selected_value in the form
+  // definition.
+  $form_state['redirect'] = 'it_novell/arm/dns/' . $form_state['values']['hostname'];
+
+  //$form_state['redirect'] = array(current_path(), array('query' => array('selected_value' => $form_state['values']['hostname'])));  
+}

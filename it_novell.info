@@ -1,0 +1,9 @@
+name = it_novell
+description = Connector for vbs script
+core = 7.x
+package = IT CMDB
+;php = 
+version = 0.1
+;dependencies[] = 
+;files[] = 
+;configure = 

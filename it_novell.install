@@ -1,0 +1,376 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function it_novell_schema() {
+  $schema['it_novell_user'] = array(
+    'description' => 'Stores all search servers created through the Search API.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The primary identifier for a user',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'novell_login' => array(
+        'description' => 'The login for a edir server.',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+      ),
+      'novell_context' => array(
+        'description' => 'The displayed name for a server.',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+      ),
+      'full_name' => array(
+        'description' => 'The machine name for a server.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'last_ip' => array(
+        'description' => 'The displayed description for a server.',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => FALSE,
+      ),
+      'last_sys_name' => array(
+        'description' => 'Hostname OS',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => FALSE,
+      ),
+      'last_sys_manufacturer' => array(
+        'description' => 'Кто производитель материнки',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'last_sys_model' => array(
+        'description' => 'Модель материнки',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'last_os_user' => array(
+        'description' => 'Локальная учетка пользователя на рабочей станции',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => FALSE,
+      ),
+      'last_os_name' => array(
+        'description' => 'Какая операционка у ползователя',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'last_os_version' => array(
+        'description' => 'Какая  версия операционки',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'last_time_check' => array(
+        'description' => 'The Unix timestamp when was get data from logon script ',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+//    'indexes' => array(
+//      'enabled' => array('enabled'),
+//    ),
+    'unique keys' => array(
+      'novell_name' => array('novell_login', 'novell_context'),
+    ),
+    'primary key' => array('id'),
+  );
+
+
+  $schema['it_novell_log'] = array(
+    'description' => 'Stores post from other wall',
+    'fields' => array(
+      'tbl_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique ID of post in tbl.',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'User ID in Drupal.',
+      ),
+      'time' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Timestam when request data",
+      ),
+      'request_name' => array(
+        'type' => 'text',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => NULL,
+        'size' => 'normal',
+        'description' => 'По каким ф.и.о ',
+      ),
+      'request_login' => array(
+        'type' => 'text',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => NULL,
+        'size' => 'normal',
+        'description' => 'По какому логину Novell искали',
+      ),
+      'request_context' => array(
+        'type' => 'text',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => NULL,
+        'size' => 'normal',
+        'description' => 'По какому контексту Novell искали',
+      ),
+      'request_ip' => array(
+        'type' => 'text',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => NULL,
+        'size' => 'normal',
+        'description' => 'По какомуIP Novell искали',
+      ),
+    ),
+    /*
+      Во всех innodb таблицах всегда должен быть явно указан первичный ключ.
+
+      Первичным ключом должна быть самая маленькая по размеру колонка.
+      Это сэкономит кучу места, т.к. значение первичного ключа сохраняется в каждом индексе.
+      Если вам нужен smallint, не используйте int и т.п.
+
+      Используйте в качестве первичного ключа auto_increment колонку — это позволит значительно
+      cнизить фрагментацию страниц и повысить скорость записи и чтения.
+      Тем более не стоит ставить primary key на несколько колонок.
+      Лучше использовать UNIQUE INDEX + auto_increment колонку для PK.
+     */
+    'primary key' => array('tbl_id'),
+  );
+
+
+  $schema['it_novell_arm'] = array(
+    'description' => 'Stores post from other wall',
+    'fields' => array(
+      'arm_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique ID of post in tbl.',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'User ID in Drupal.',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Node ID in Drupal.',
+      ),      
+      'added' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Timestam when add data",
+      ),
+      'updated' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Timestam when update data",
+      ),      
+      'arm_hostname' => array(
+        'type' => 'varchar',
+        'length' => 15,
+        'not null' => TRUE,
+        'description' => 'HOSTNAME ARM',
+      ),
+    ),
+    /*
+      Во всех innodb таблицах всегда должен быть явно указан первичный ключ.
+
+      Первичным ключом должна быть самая маленькая по размеру колонка.
+      Это сэкономит кучу места, т.к. значение первичного ключа сохраняется в каждом индексе.
+      Если вам нужен smallint, не используйте int и т.п.
+
+      Используйте в качестве первичного ключа auto_increment колонку — это позволит значительно
+      cнизить фрагментацию страниц и повысить скорость записи и чтения.
+      Тем более не стоит ставить primary key на несколько колонок.
+      Лучше использовать UNIQUE INDEX + auto_increment колонку для PK.
+     */
+    'primary key' => array('arm_id'),
+    'unique keys' => array(
+      'arm_hostname' => array('arm_hostname'),
+    ),
+  );  
+  
+
+  return $schema;
+}
+
+/**
+ *  Add new table for loging request
+ */
+function it_novell_update_7001() {
+
+  $schema['it_novell_log'] = array(
+    'description' => 'Stores post from other wall',
+    'fields' => array(
+      'tbl_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique ID of post in tbl.',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'User ID in Drupal.',
+      ),
+      'time' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Timestam when request data",
+      ),
+      'request_name' => array(
+        'type' => 'text',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => NULL,
+        'size' => 'normal',
+        'description' => 'По каким ф.и.о ',
+      ),
+      'request_login' => array(
+        'type' => 'text',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => NULL,
+        'size' => 'normal',
+        'description' => 'По какому логину Novell искали',
+      ),
+      'request_context' => array(
+        'type' => 'text',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => NULL,
+        'size' => 'normal',
+        'description' => 'По какому контексту Novell искали',
+      ),
+    ),
+    /*
+      Во всех innodb таблицах всегда должен быть явно указан первичный ключ.
+
+      Первичным ключом должна быть самая маленькая по размеру колонка.
+      Это сэкономит кучу места, т.к. значение первичного ключа сохраняется в каждом индексе.
+      Если вам нужен smallint, не используйте int и т.п.
+
+      Используйте в качестве первичного ключа auto_increment колонку — это позволит значительно
+      cнизить фрагментацию страниц и повысить скорость записи и чтения.
+      Тем более не стоит ставить primary key на несколько колонок.
+      Лучше использовать UNIQUE INDEX + auto_increment колонку для PK.
+     */
+    'primary key' => array('tbl_id'),
+  );
+
+  db_create_table('it_novell_log', $schema['it_novell_log']);
+}
+
+/**
+ * Add a IP field in log table
+ */
+function it_novell_update_7002() {
+  // Check because D6 installs may already have added this.
+  if (!db_field_exists('it_novell_log', 'request_ip')) {
+    $new_field = array(
+      'type' => 'text',
+      'length' => 255,
+      'not null' => FALSE,
+      'default' => NULL,
+      'size' => 'normal',
+      'description' => 'По какому IP искали',
+    );
+    db_add_field('it_novell_log', 'request_ip', $new_field);
+  }
+}
+
+/**
+ *  Добавляем  таблицу учета АРМов
+ */
+function it_novell_update_7003() {
+
+  $schema['it_novell_arm'] = array(
+    'description' => 'Stores post from other wall',
+    'fields' => array(
+      'arm_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique ID of post in tbl.',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'User ID in Drupal.',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Node ID in Drupal.',
+      ),       
+      'added' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Timestam when add data",
+      ),
+      'updated' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Timestam when update data",
+      ),      
+      'arm_hostname' => array(
+        'type' => 'varchar',
+        'length' => 15,
+        'not null' => TRUE,
+        'description' => 'HOSTNAME ARM',
+      ),
+    ),
+    /*
+      Во всех innodb таблицах всегда должен быть явно указан первичный ключ.
+
+      Первичным ключом должна быть самая маленькая по размеру колонка.
+      Это сэкономит кучу места, т.к. значение первичного ключа сохраняется в каждом индексе.
+      Если вам нужен smallint, не используйте int и т.п.
+
+      Используйте в качестве первичного ключа auto_increment колонку — это позволит значительно
+      cнизить фрагментацию страниц и повысить скорость записи и чтения.
+      Тем более не стоит ставить primary key на несколько колонок.
+      Лучше использовать UNIQUE INDEX + auto_increment колонку для PK.
+     */
+    'primary key' => array('arm_id'),
+    'unique keys' => array(
+      'arm_hostname' => array('arm_hostname'),
+    ),
+  );
+
+  db_create_table('it_novell_arm', $schema['it_novell_arm']);
+}
