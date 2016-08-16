@@ -96,16 +96,16 @@ function it_novell_menu() {
     'title' => 'Учет АРМ', //заголовок страницы
     'page callback' => 'it_novell_page_arm',
     'access arguments' => array('access protected it_novell_arm'), //  Ограничиваем доступ, по ролям через hook_permission
-    'type' => MENU_LOCAL_TASK,    
+    'type' => MENU_LOCAL_TASK,
   );
-  
+
   $items['it_novell/arm/arm'] = array(
     'title' => 'Учет АРМ', //заголовок страницы
     'description' => 'Учет имен АРМов', //описание страницы    
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => 10,
-  );  
-  
+  );
+
   $items['it_novell/arm/dns'] = array(
     'title' => 'Наличие в DNS', //заголовок страницы
     'description' => 'Проверка на наличеие имен в DNS', //описание страницы    
@@ -115,7 +115,67 @@ function it_novell_menu() {
     'access arguments' => array('access protected it_novell_arm'), //  Ограничиваем доступ, по ролям через hook_permission
     'type' => MENU_LOCAL_TASK,
     'weight' => 400,
-  );  
+  );
+
+
+  $items['it_novell/dns'] = array(
+    'title' => 'DNS', //заголовок страницы
+    'description' => 'Добавление удаление имен в DNS', //описание страницы    
+    //'page callback' => 'it_novell_page_dns',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('it_novell_form_dnsadd'),
+    'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 800,
+  );
+
+  $items['it_novell/dns/add'] = array(
+    'title' => 'Добавить', //заголовок страницы
+    'description' => 'Добавление имен в DNS', //описание страницы    
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['it_novell/dns/del'] = array(
+    'title' => 'Удаление', //заголовок страницы
+    'description' => 'Удаление имен в DNS', //описание страницы    
+    //'page callback' => 'it_novell_page_dns',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('it_novell_form_dnsdel'),
+    'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['it_novell/dns/in-addr'] = array(
+    'title' => 'Обратная зона', //заголовок страницы
+    'description' => 'Сопоставление прямой зоны обратной', //описание страницы    
+    //'page callback' => 'it_novell_page_dns',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('it_novell_form_dns_inaddr'),
+    'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['it_novell/dns/in-addr2'] = array(
+    'title' => 'Сверка', //заголовок страницы
+    'description' => 'Сверка наличия прямой зоны в обратной', //описание страницы    
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('it_novell_form_dns_inaddr2'),
+    'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['it_novell/dns/dev'] = array(
+    'title' => 'DEV', //заголовок страницы
+    'description' => 'Удаление имен в DNS', //описание страницы    
+    'page callback' => 'it_novell_page_dns_dev',
+    //'page callback' => 'drupal_get_form',
+    //'page arguments' => array('it_novell_form_dnsdel'),
+    'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    'type' => MENU_LOCAL_TASK,
+  );
+
+
+
 
   $items['it_novell/arm/autocomplete'] = array(
     'page callback' => 'it_novell_autocomplete_arm',
@@ -172,9 +232,9 @@ function it_novell_post_get() {
   if (is_null($NOVELL_LOGIN)) {
     $NOVELL_LOGIN = '-NULL-';
   }
-  
+
   $HOSTNAME = $obj->{'System Name'};
-  
+
   $NOVELL_CONTEXT = $obj->{'LOGIN_CONTEXT'};
   // Берем логин и контекст  ищем наличие в бд, если нет то добавляем.
   $ID = db_select('it_novell_user', 'u')
@@ -226,8 +286,10 @@ function it_novell_post_get() {
   }
 
   //it_novell_send2dns($IP, "$NOVELL_LOGIN.$NOVELL_CONTEXT", 'arm.metcombank.net');
-  it_novell_send2dns($IP, "$NOVELL_LOGIN.$HOSTNAME", 'arm.metcombank.net');
-  
+  //it_novell_send2dns($IP, "$NOVELL_LOGIN.$HOSTNAME", 'arm.metcombank.net');
+// Прописываем в обратную зону
+// Прямую зону прописывают армы сами
+  it_novell_dnsrec_add_ptr("$NOVELL_LOGIN.$HOSTNAME.arm.metcombank.net", $IP);
 }
 
 /**
@@ -431,7 +493,6 @@ function it_novell_user_search($param) {
   }
 
   //.******** Визуализация данных на страницу  
-
   //$legen_msg = "Количество найденных совпадений: " . count($rows) . "<br> RowCount $cnt_res";
 
 
@@ -1276,3 +1337,654 @@ function it_novell_form_arm_dns_submit($form_id, &$form_state) {
 
   //$form_state['redirect'] = array(current_path(), array('query' => array('selected_value' => $form_state['values']['hostname'])));  
 }
+
+/**
+ * Обновление записей в DNS
+ * 
+ * @param string $subdomain
+ * @param string $zone
+ * @param string $ip
+ * @param string $opt  add/del
+ */
+function it_novell_nsupdate($subdomain, $zone, $ip, $opt = 'add', $dns_srv = '172.16.0.10') {
+  $dbg = 0;
+  $keyfile = drupal_get_path('module', 'it_novell') . '/key/Kblackbox.+157+19077.private';
+  $logfile = drupal_get_path('module', 'it_novell') . '/key/exec.log';
+  $file = drupal_get_path('module', 'it_novell') . '/key/drp2dns.txt';
+
+  $keyfile = '/opt/www/domains/it.metcombank.net/sites/all/modules/it_novell/key/Kblackbox.+157+19077.private';
+  //$command = '/usr/bin/nsupdate -k ' . $keyfile . ' -v ' . $file;
+////server 172.16.0.10
+//zone metcombank.net
+//update add bi-face.metcombank.net. 86400 A 192.168.220.33
+//send hqm-debug-dns
+  //exec($command, $output, $return_var);
+  // prepare command
+
+  switch ($opt) {
+    case 'del':
+      $data = "<<EOF
+     server $dns_srv
+     zone $zone
+     update delete $subdomain.$zone.  A
+     send
+     EOF";
+      break;
+
+    default:
+      $data = "<<EOF
+     server $dns_srv
+     zone $zone
+     update add $subdomain.$zone.  86400 A $ip
+     send
+     EOF";
+      break;
+  }
+
+// run DNS update
+  $command = "/usr/bin/nsupdate -k $keyfile $data";
+  $cmdout = array();
+  exec($command, $cmdout, $ret);
+  return $ret;
+}
+
+/**
+ * Добавление записи PTR в  DNS
+ * 
+ * 
+ * @param type $subdomain
+ * @param type $zone
+ * @param type $ip
+ * @param type $opt
+ * @param type $dns_srv
+ * @return type
+ */
+function it_novell_dnsrec_add_ptr($domain, $ip, $dns_srv = '172.16.0.10') {
+  $dbg = 0;
+  $keyfile = drupal_get_path('module', 'it_novell') . '/key/Kblackbox.+157+19077.private';
+  $logfile = drupal_get_path('module', 'it_novell') . '/key/exec.log';
+  $file = drupal_get_path('module', 'it_novell') . '/key/drp2dns.txt';
+  $keyfile = '/opt/www/domains/it.metcombank.net/sites/all/modules/it_novell/key/Kblackbox.+157+19077.private';
+
+  $tt = explode('.', $ip);
+  $ip_revers = implode('_', array_reverse($tt));
+  $ip_inaddr = implode('.', array_reverse($tt));
+  // Получаем список доступных обратных зон
+  $zones = _it_novell_dns_getzones('INADDR');
+  $ZONE_FIND = "NONE";
+  $ZONE_CNT = 0;
+  unset($zones['count']);
+  $Z = array();
+  $pattern = '/_IN-ADDR_ARPA$/i';
+  $replacement = '';
+  $MAX = 100;
+  foreach ($zones as $zone) {
+    $zone_inaddr = $zone['cn'][0];
+    $zn = preg_replace($pattern, $replacement, $zone_inaddr);
+    $ipr = explode("_", $zn);
+    if(count($ipr)<4){
+      $zn = "_$zn";
+    }
+    $ra = explode('_', $ip_revers);
+    
+
+   
+    $pos = strpos($ip_revers, $zn);
+    if ($pos > 0) {           
+        if (count($ipr) > $ZONE_CNT) {
+          $ZONE_CNT = count($ipr);
+          $ZONE_FIND = $zone_inaddr;
+        }      
+    }
+    
+    }
+
+    // Нету подходящей обратной зоны
+    if ($ZONE_FIND == "NONE") {
+      $message = "Для $ip нет подходящей обратной зоны!";
+      watchdog('Novell DNS', $message, NULL, WATCHDOG_WARNING);
+      //drupal_set_message($message, 'warning');
+      return false;
+    }
+
+//zone 220.168.192.in-addr.arpa
+//update add 33.220.168.192.in-addr.arpa. 86400 IN PTR hqm-biface.srv.metcombank.net.
+
+    $zone = strtolower($ZONE_FIND);
+    $pattern = '/_/i';
+    $replacement = '.';
+    $zone = preg_replace($pattern, $replacement, $zone);
+
+
+    $patst = '/status\:.*/';
+
+
+// update delete 31.113.16.172.in-addr.arpa. PTR
+    $data = "<<EOF
+     server $dns_srv
+     zone $zone
+     update delete $ip_inaddr.in-addr.arpa. PTR
+     send
+     EOF";
+    $command = "/usr/bin/nsupdate -d -k $keyfile $data";
+    $cmdout = array();
+    exec($command, $cmdout, $ret);
+    preg_match($patst, $cmdout[1], $matches, PREG_OFFSET_CAPTURE);
+
+    //drupal_set_message( "delete $ip_inaddr.in-addr.arpa. PTR status: [" . $matches[0][0] . " ]");
+    $message = "delete $ip_inaddr.in-addr.arpa. PTR status: [" . $matches[0][0] . " ]";
+    watchdog('Novell DNS', $message, NULL, WATCHDOG_INFO);
+
+    $data = "<<EOF
+     server $dns_srv
+     zone $zone
+     update add $ip_inaddr.in-addr.arpa. 86400 IN PTR $domain.
+     send
+     EOF";
+
+// run DNS update
+    $command = "/usr/bin/nsupdate -d -k $keyfile $data";
+    $cmdout = array();
+    exec($command, $cmdout, $ret);
+    preg_match($patst, $cmdout[1], $matches, PREG_OFFSET_CAPTURE);
+    $message = "add $ip_inaddr.in-addr.arpa. PTR status: [" . $matches[0][0] . " ]";
+    watchdog('Novell DNS', $message, NULL, WATCHDOG_INFO);
+    //drupal_set_message( "add $ip_inaddr.in-addr.arpa. PTR status: [" . $matches[0][0] . " ]");
+    return TRUE;
+  }
+
+  /**
+   * Вспомогательная функция по получению доменых зон
+   * 
+   * @param string $opt  INADDR
+   * @return type
+   */
+  function _it_novell_dns_getzones($opt = 'all') {
+    module_load_include('inc', 'it_novell', 'it_novell.ldap');
+    $dn = 'ou=dnsdhcp,ou=A1SRV,ou=HQM,o=MCB';
+
+    switch ($opt) {
+      case 'INADDR':
+        $filter = '(&(objectClass=dNIPDNSZone)(cn=*IN-ADDR_ARPA))';
+        break;
+
+      default:
+        $filter = 'objectClass=dNIPDNSZone';
+        break;
+    }
+
+    return it_novell_ldap_search($dn, $filter);
+  }
+
+  /**
+   * Implements hook_forms();
+   */
+  function it_novell_form_dnsadd($form_id, &$form_state) {
+    $dbg = 0;
+    $tt = _it_novell_dns_getzones();
+    unset($tt['count']);
+    foreach ($tt as $zz) {
+      $Z = $zz['dnipzonedomainname']['0'];
+      $options[$Z] = $Z;
+    }
+    // ПОЛУЧАЕМ  NID - TITLE  всех геообъектов
+    // Return all nids of nodes of type "page".
+
+
+    $form['zone'] = array(
+      '#type' => 'select',
+      '#title' => 'Zone',
+      '#options' => $options,
+    );
+
+    $form['single'] = array(
+      '#title' => 'Одиночная операция',
+      '#type' => 'fieldset',
+        //'#attributes' => array('class' => array('f_bss')),
+    );
+
+    $form['single']['subdomain'] = array(
+      '#type' => 'textfield',
+      '#title' => 'SubDomain',
+      '#size' => 25, // Визуальная часть
+        //'#maxlength' => 15,
+    );
+
+    $form['single']['ip'] = array(
+      '#type' => 'textfield',
+      '#title' => 'IP',
+      '#size' => 25, // Визуальная часть
+      '#maxlength' => 15,
+        //'#required' => TRUE,
+    );
+
+    $form['multi'] = array(
+      '#type' => 'fieldset',
+      '#title' => 'Массовая операция',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+
+    $form['multi']['subdomains'] = array(
+      '#type' => 'textarea',
+      '#title' => 'Subdomain - IP',
+      '#description' => 'Посторочно указать имя и IP  через пробел <br> Пример: <em>hqm-sample 172.16.0.16</em>',
+    );
+
+
+    $form['submit'] = array(
+      '#value' => 'Добавить',
+      '#type' => 'submit',
+        //'#submit' => array('it_novell_armadd_submit'),    
+    );
+
+
+    return $form;
+  }
+
+  /**
+   * Implements hook_forms_validate();
+   */
+  function it_novell_form_dnsadd_validate($form_id, &$form_state) {
+    $dbg = 0;
+    $values = $form_state['values'];
+
+    // Проверка на идиота, не вбили ничего и запустили форму
+    if (empty($values['subdomain']) && empty($values['ip']) &&
+        empty($values['subdomains'])) {
+      form_set_error('ip');
+      form_set_error('subdomain');
+      form_set_error('subdomains', 'Вводные отсутствуют. Необходимо указать домен и IP');
+      //form_set_error('zone', 'Вводные отсутствуют.');
+      return;
+    }
+
+
+    if (!empty($values['subdomain']) && !empty($values['ip'])) {
+      // Проверяем валидный ли IP подсунули
+      if (!_it_novell_checkIP($values['ip'])) {
+        form_set_error('ip');
+      }
+    }
+  }
+
+  /**
+   * Implements hook_forms_submit();
+   */
+  function it_novell_form_dnsadd_submit($form_id, &$form_state) {
+    $dbg = 0;
+    $values = $form_state['values'];
+    $zone = $values['zone'];
+    $subdomain = $values['subdomain'];
+    $subdomains = $values['subdomains'];
+
+    if (!empty($values['subdomains'])) {
+      _it_novell_dnsaddmulti($values['subdomains'], $zone);
+    }
+
+    if (!empty($values['subdomain']) && !empty($values['ip'])) {
+      it_novell_nsupdate($subdomain, $zone, $values['ip']);
+    }
+  }
+
+  /**
+   * Implements hook_forms();
+   */
+  function it_novell_form_dnsdel($form_id, &$form_state) {
+    $dbg = 0;
+    module_load_include('inc', 'it_novell', 'it_novell.ldap');
+    $dn = 'ou=dnsdhcp,ou=A1SRV,ou=HQM,o=MCB';
+    $filter = 'objectClass=dNIPDNSZone';
+
+    $tt = it_novell_ldap_search($dn, $filter);
+    unset($tt['count']);
+    foreach ($tt as $zz) {
+      $Z = $zz['dnipzonedomainname']['0'];
+      $options[$Z] = $Z;
+    }
+    // ПОЛУЧАЕМ  NID - TITLE  всех геообъектов
+    // Return all nids of nodes of type "page".
+
+
+    $form['zone'] = array(
+      '#type' => 'select',
+      '#title' => 'Zone',
+      '#options' => $options,
+    );
+
+    $form['subdomains'] = array(
+      '#type' => 'textarea',
+      '#title' => 'Subdomain - IP',
+      '#description' => 'Посторочно указать имя',
+    );
+
+    $form['submit'] = array(
+      '#value' => 'Удалить',
+      '#type' => 'submit',
+        //'#submit' => array('it_novell_armadd_submit'),    
+    );
+
+    return $form;
+  }
+
+  function it_novell_form_dnsdel_submit($form_id, &$form_state) {
+    $dbg = 0;
+    $values = $form_state['values'];
+    $zone = $values['zone'];
+    $subdomains = $values['subdomains'];
+
+    if (!empty($values['subdomains'])) {
+      _it_novell_dnsdelmulti($values['subdomains'], $zone);
+    }
+  }
+
+  function it_novell_form_dns_inaddr($form_id, &$form_state) {
+    $dbg = 0;
+    module_load_include('inc', 'it_novell', 'it_novell.ldap');
+    // Много ходовая форма, счетчик шагов
+    $step = isset($form_state['values']) ? (int) $form_state['storage']['step'] : 0;
+    $step++;
+    $form_state['storage']['step'] = $step;
+
+
+    switch ($step) {
+
+      case 1:
+        $dn = 'ou=dnsdhcp,ou=A1SRV,ou=HQM,o=MCB';
+        $filter = 'objectClass=dNIPDNSZone';
+
+        $tt = it_novell_ldap_search($dn, $filter);
+        unset($tt['count']);
+        foreach ($tt as $zz) {
+          $Z = $zz['dnipzonedomainname']['0'];
+          if (strpos($Z, 'IN-ADDR.ARPA')) {
+            $opt_inaddr[$zz['cn'][0]] = $Z;
+          }
+          else {
+            $opt_zone[$zz['cn'][0]] = $Z;
+          }
+        }
+
+        $form['zone'] = array(
+          '#type' => 'select',
+          '#title' => 'Zone',
+          '#options' => $opt_zone,
+        );
+
+        $form['lookzone'] = array(
+          '#value' => 'Показать список',
+          '#type' => 'submit',
+            //'#submit' => array('it_novell_armadd_submit'),    
+        );
+
+        break;
+
+      case 2:
+        $dbg = 2;
+        $form_state['storage']['zone'] = $form_state['values']['zone'];
+        $header = array(
+          'Name',
+          'IP',
+          'PTR',
+        );
+
+        // Выводим в табличном виде с пагинацией  
+        $form['table'] = array
+          (
+          '#type' => 'tableselect',
+          '#header' => $header,
+          '#options' => it_novell_ldap_getdnsrecord($form_state['values']['zone']), //_mcb_proxy_groups_list(),
+          '#empty' => 'Группы отсутствуют, необходимо их создать',
+        );
+
+        $form['submit'] = array(
+          '#value' => 'Прописать в обратную зону',
+          '#type' => 'submit',
+          '#submit' => array('it_novell_form_inaddr_write'),
+        );
+    }
+
+    return $form;
+  }
+
+  /**
+   *  Прописываем обратную зону для выбранных  адресов
+   * 
+   * @param type $form_id
+   * @param type $form_state
+   */
+  function it_novell_form_inaddr_write($form_id, &$form_state) {
+    $dbg = 0;
+    $data = it_novell_ldap_getdnsrecord($form_state['storage']['zone']);
+
+    foreach ($form_state['values']['table'] as $cn => $value) {
+      if (is_int($value) && $value == 0) {
+        continue;
+      }
+
+      $domain = $data[$cn][0];
+      $ip = $data[$cn][1];
+      $res = it_novell_dnsrec_add_ptr($domain, $ip);
+    }
+  }
+
+  /**
+   * Готовим данные для таблицы  в форму выбора записей 
+   * 
+   * @param type $cnzone
+   * @return type
+   */
+  function it_novell_ldap_getdnsrecord($cnzone) {
+    module_load_include('inc', 'it_novell', 'it_novell.ldap');
+
+    $dbg = 1;
+    $dn = "cn=$cnzone,ou=dnsdhcp,ou=A1SRV,ou=HQM,o=MCB";
+    $filter = 'objectClass=dNIPDNSRRset';
+
+    $tt = it_novell_ldap_search($dn, $filter);
+    unset($tt['count']);
+
+    foreach ($tt as $item) {
+
+      if ($item['cn'][0] == "@")
+        continue;
+      // Если такого нет  скорее всего там адрес 0,0,0,0  и удален но в дереве
+      //  запись есть
+      if (!isset($item['dniprr']))
+        continue;
+
+      $ipbin = $item['dniprr'][0];
+      $array = unpack("c10D/NIP", $ipbin);
+      $NN = long2ip($array['IP']);
+      $ip_inaddr = implode('.', array_reverse(explode(".", $NN)));
+
+      // 41.78.244.4.in-addr.arpa.
+      $FADA = dns_get_record("$ip_inaddr.in-addr.arpa.", DNS_PTR);
+      //$FADA = dns_get_record($NN,  DNS_ALL ) ;
+
+      $PTR = "";
+      if (count($FADA) > 0) {
+        foreach ($FADA as $it) {
+          if ($it['type'] == "PTR") {
+            $PTR .= $it['host'] . " " . $it['target'] . " " . $it['ttl'] . "<br>";
+          }
+        }
+      }
+
+      $rows[$item['dn']] = array(
+        $item['dnipdnsdomainname'][0],
+        $NN,
+        $PTR
+      );
+    }
+
+    return $rows;
+  }
+
+  function it_novell_form_dns_inaddr_submit($form_id, &$form_state) {
+    $form_state['rebuild'] = TRUE;
+  }
+
+  function it_novell_form_dns_inaddr2($form_id, &$form_state) {
+    $dbg = 0;
+
+    $tt = _it_novell_dns_getzones();
+    unset($tt['count']);
+    foreach ($tt as $zz) {
+      $Z = $zz['dnipzonedomainname']['0'];
+      if (strpos($Z, 'IN-ADDR.ARPA')) {
+        $opt_inaddr[$zz['cn'][0]] = $Z;
+      }
+      else {
+        $opt_zone[$zz['cn'][0]] = $Z;
+      }
+    }
+    // ПОЛУЧАЕМ  NID - TITLE  всех геообъектов
+    // Return all nids of nodes of type "page".
+
+
+    $form['zone'] = array(
+      '#type' => 'select',
+      '#title' => 'Zone',
+      '#options' => $opt_zone,
+    );
+
+    $form['inaddr'] = array(
+      '#type' => 'select',
+      '#title' => 'IN-ADDR',
+      '#options' => $opt_inaddr,
+    );
+
+
+    $form['submit'] = array(
+      '#value' => 'Удалить',
+      '#type' => 'submit',
+        //'#submit' => array('it_novell_armadd_submit'),    
+    );
+
+    return $form;
+  }
+
+  function it_novell_form_dns_inaddr2_submit($form_id, &$form_state) {
+    $dbg = 0;
+    $cn = "cn=" . $form_state['values']['inaddr'];
+    $dn = "$cn,ou=dnsdhcp,ou=A1SRV,ou=HQM,o=MCB";
+    $filter = 'objectClass=dNIPDNSRRset';
+
+    $records = it_novell_ldap_search($dn, $filter);
+
+    unset($records['count']);
+
+    foreach ($records as $rec) {
+      $dbg = 5;
+      if ($rec['dniprr']['count'] > 1) {
+        $dbg = 0;
+      }
+
+      $binarydata = "\x04\x00\xa0\x00";
+      $array = unpack("c2D/nB", $binarydata);
+      $rr = $convertedStr = iconv('utf-16', 'utf-8', $rec['dniprr'][0]);
+      $test = unpack("l1/c4Z/A*NAME", $rec['dniprr'][0]);
+      $zuza = unpack('H*', $rec['dniprr'][0]);
+      $SDD = utf8_decode();
+      $rr2 = utf8_decode($test['NAME']);
+    }
+  }
+
+  /**
+   * Вспомогательная функция по масовому добавлению
+   * 
+   * @param type $list
+   * @param type $zone
+   */
+  function _it_novell_dnsaddmulti($list, $zone) {
+    $dbg = 5;
+    $names = explode("\n", $list);
+    foreach ($names as $row) {
+      if ($row === "")
+        continue;
+      // Разделяем имя и IP
+      $t = explode(" ", trim($row));
+      // Если в строке боле 2 элементов, значит какая-то фигня пропустим
+      if (count($t) <> 2)
+        continue;
+      // Проверяем валидный ли IP подсунули
+      if (_it_novell_checkIP($t[1])) {
+        it_novell_nsupdate($t[0], $zone, $t[1]);
+      }
+    }
+    $dbg = 0;
+  }
+
+  /**
+   * Вспомогательная функция по масовому удалению
+   * 
+   * @param type $list
+   * @param type $zone
+   */
+  function _it_novell_dnsdelmulti($list, $zone) {
+    $dbg = 5;
+    $names = explode("\n", $list);
+    foreach ($names as $row) {
+      if ($row === "")
+        continue;
+      // Разделяем имя и IP
+      $t = explode(" ", trim($row));
+      // Если в строке боле 1 элементов, значит какая-то фигня пропустим
+      if (count($t) > 1)
+        continue;
+      it_novell_nsupdate($t[0], $zone, $t[1], 'del');
+    }
+    $dbg = 0;
+  }
+
+  function _it_novell_checkIP($ip) {
+    if (ip2long($ip) !== false) {
+      return TRUE;
+    }
+    else {
+      $message = "[ERROR] <em>Неможет быть такого IP: $ip</em>";
+      drupal_set_message($message, 'error');
+      return FALSE;
+    }
+  }
+
+  /**
+   * Вспомогательная функция по разбору результата поиска в LDAP чтобы
+   * получить интересуемые параметры
+   * 
+   * 
+   * @param array $attributes
+   * @param type $entry
+   * @return array массив где в качестве ключа название атрибута.
+   */
+  function _it_novell_ldap_entry_get_attr($attributes, $entry) {
+    $dbg = 0;
+    if (!is_array($attributes))
+      return FALSE;
+    $result = array();
+    foreach ($entry[0] as $name => $value) {
+      if (is_numeric($name))
+        continue;
+      // Если это тот атрибут который нам нужет тогда вычленяем его.
+      if (in_array(strtolower($name), $attributes)) {
+        $dbg = 1;
+        unset($value['count']);
+        $result[$name] = $value;
+      }
+    }
+    return $result;
+  }
+
+  function it_novell_page_dns_dev() {
+    $dbg = 0;
+    $content = 'Develops epta!';
+    $dbg = 0;
+    $domain = 'NNV-KIRV1-00002.arm.metcombank.net';
+    $ip = '172.16.185.58';
+    it_novell_dnsrec_add_ptr($domain, $ip);
+//58.185.16.172.in-addr.arpa matantseva-mn.kirov-2.arm.metcombank.net 10800
+//58.185.16.172.in-addr.arpa matantseva-mn.nnv-kirv1-00002.arm.metcombank.net 10800
+    return $content;
+  }
+  
