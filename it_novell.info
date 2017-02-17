@@ -5,5 +5,5 @@ package = IT CMDB
 ;php = 
 version = 0.1
 ;dependencies[] = 
-;files[] = 
+;files[] = it_novell.ldap.inc
 ;configure = 

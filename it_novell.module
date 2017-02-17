@@ -160,7 +160,8 @@ function it_novell_menu() {
     'description' => 'Сверка наличия прямой зоны в обратной', //описание страницы    
     'page callback' => 'drupal_get_form',
     'page arguments' => array('it_novell_form_dns_inaddr2'),
-    'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    //'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    'access arguments' => array('administer access control'),
     'type' => MENU_LOCAL_TASK,
   );
 
@@ -170,7 +171,9 @@ function it_novell_menu() {
     'page callback' => 'it_novell_page_dns_dev',
     //'page callback' => 'drupal_get_form',
     //'page arguments' => array('it_novell_form_dnsdel'),
-    'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    //'access arguments' => array('access protected it_novell_dns'), //  Ограничиваем доступ, по ролям через hook_permission
+    'access arguments' => array('administer access control'), //  Ограничиваем доступ, по ролям через hook_permission
+    
     'type' => MENU_LOCAL_TASK,
   );
 
@@ -1910,7 +1913,9 @@ function it_novell_dnsrec_add_ptr($domain, $ip, $dns_srv = '172.16.0.10') {
         continue;
       // Проверяем валидный ли IP подсунули
       if (_it_novell_checkIP($t[1])) {
-        it_novell_nsupdate($t[0], $zone, $t[1]);
+        $res = it_novell_nsupdate($t[0], $zone, $t[1]);
+        $message = "ADD $t[0] $zone $t[1] RESULT=$res";
+        drupal_set_message($message);
       }
     }
     $dbg = 0;
